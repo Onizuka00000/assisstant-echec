@@ -1,0 +1,17 @@
+{
+  "name": "Chess Coach AI",
+  "short_name": "ChessCoach",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#312e2b",
+  "theme_color": "#81b64c",
+  "description": "Analyse de parties d'échecs avec Coach IA local.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3233/3233471.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

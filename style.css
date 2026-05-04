@@ -1,0 +1,473 @@
+:root {
+    /* Chess.com Inspired Palette */
+    --chess-green: #81b64c;
+    --chess-green-hover: #95bb4a;
+    --chess-bg: #312e2b;
+    --chess-card: #262421;
+    --chess-border: #3c3934;
+    --text-white: #ffffff;
+    --text-muted: #bab9b8;
+    --accent-red: #fa3123;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-color: var(--chess-bg);
+    color: var(--text-white);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    overflow-x: hidden;
+    line-height: 1.5;
+    /* Optimisation iPhone */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* background decoration */
+.background-decor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.chess-piece {
+    position: absolute;
+    font-size: 20rem;
+    color: rgba(255, 255, 255, 0.02);
+    user-select: none;
+}
+
+.king { top: -5%; right: -5%; transform: rotate(15deg); }
+.knight { bottom: -5%; left: -5%; transform: rotate(-15deg); }
+
+.app-wrapper {
+    width: 100%;
+    max-width: 500px;
+    padding: 20px 12px; /* Marges réduites pour maximiser l'échiquier sur mobile */
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Header */
+.main-header {
+    text-align: center;
+    animation: fadeInDown 0.8s ease-out;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.logo .icon {
+    color: var(--chess-green);
+}
+
+.logo h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-weight: 300;
+    letter-spacing: 0.5px;
+}
+
+/* Content Card */
+.content-card {
+    background-color: var(--chess-card);
+    border-radius: 16px;
+    border: 1px solid var(--chess-border);
+    padding: 32px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Search Section */
+.search-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 16px;
+    color: var(--text-muted);
+    width: 20px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 18px 18px 18px 48px;
+    border-radius: 12px;
+    border: 2px solid var(--chess-border);
+    background-color: #3c3934;
+    color: var(--text-white);
+    font-size: 1.1rem;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+input[type="text"]:focus {
+    border-color: var(--chess-green);
+    background-color: #45423e;
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 18px;
+    border-radius: 12px;
+    border: none;
+    background-color: var(--chess-green);
+    border-bottom: 4px solid #457521;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+}
+
+.primary-btn:hover {
+    background-color: var(--chess-green-hover);
+    transform: translateY(-2px);
+}
+
+.primary-btn:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+}
+
+/* Status & Progress */
+.status-container {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.status-text {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: var(--chess-border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    width: 30%;
+    height: 100%;
+    background-color: var(--chess-green);
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* Feedback Article */
+.feedback-article {
+    border-top: 1px solid var(--chess-border);
+    padding-top: 32px;
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.report-header {
+    margin-bottom: 24px;
+}
+
+.coach-profile {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.avatar-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: #3c3934;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--chess-green);
+    border: 2px solid var(--chess-green);
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background-color: rgba(129, 182, 76, 0.1);
+    color: var(--chess-green);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.divider {
+    height: 2px;
+    width: 40px;
+    background-color: var(--chess-green);
+    margin: 16px 0;
+}
+
+.feedback-text {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: #e0e0e0;
+}
+
+.feedback-text strong {
+    color: var(--chess-green);
+}
+
+.report-footer {
+    margin-top: 32px;
+}
+
+.tip-box {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-left: 4px solid var(--chess-green);
+    padding: 16px;
+    border-radius: 0 8px 8px 0;
+    display: flex;
+    gap: 12px;
+}
+
+.tip-icon {
+    color: var(--chess-green);
+    flex-shrink: 0;
+}
+
+.tip-box p {
+    font-size: 0.95rem;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+/* Footer */
+.app-footer {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.1);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* Chessboard Overrides */
+.board-and-eval {
+    display: flex;
+    gap: 12px;
+    align-items: stretch; /* Force la barre et l'échiquier à la même hauteur */
+    width: 100%;
+}
+
+.eval-bar {
+    width: 24px;
+    background-color: #262421;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column-reverse;
+    border: 1px solid var(--chess-border);
+    flex-shrink: 0; /* Empêche la barre de s'écraser */
+}
+
+.eval-fill {
+    width: 100%;
+    background-color: #ffffff;
+    height: 50%;
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.eval-score-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #bab9b8;
+    z-index: 10;
+    top: 5px;
+    pointer-events: none;
+}
+
+#myBoard {
+    flex-grow: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 4px solid var(--chess-border);
+}
+
+.board-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--chess-border);
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.control-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-white);
+    padding: 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.control-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.move-info {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-white);
+}
+
+/* Move Rating Badges */
+.best-move-suggestion {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(129, 182, 76, 0.08);
+    border-left: 4px solid var(--chess-green);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.95rem;
+    color: #d5d3d1;
+    line-height: 1.5;
+}
+
+.simulation-text {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: #8b8987;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.5px;
+}
+
+.opponent-move-label {
+    color: #8b8987;
+    font-style: italic;
+    font-size: 0.95rem;
+    padding: 8px 0;
+    border-left: 3px solid #403d39;
+    padding-left: 12px;
+}
+
+.move-rating {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--chess-border);
+}
+
+.rating-icon {
+    font-size: 1.5rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.rating-label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+
+/* Colors for move ratings */
+.rating-best { color: #81b64c; background-color: rgba(129, 182, 76, 0.15); }
+.rating-excellent { color: #95bb4a; background-color: rgba(149, 187, 74, 0.15); }
+.rating-good { color: #5c8bb0; background-color: rgba(92, 139, 176, 0.15); }
+.rating-inaccuracy { color: #f0c15c; background-color: rgba(240, 193, 92, 0.15); }
+.rating-mistake { color: #e6912c; background-color: rgba(230, 145, 44, 0.15); }
+.rating-blunder { color: #fa3123; background-color: rgba(250, 49, 35, 0.15); }
+
+.tactical-warning {
+    display: inline-block;
+    color: #ff9f43;
+    font-weight: 700;
+    margin-bottom: 8px;
+    padding: 4px 10px;
+    background: rgba(255, 159, 67, 0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 159, 67, 0.2);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Opening Banner */
+.opening-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 14px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.85rem;
+    color: #ffd700;
+    font-weight: 600;
+    animation: fadeInUp 0.5s ease;
+}
+
+.opening-banner svg {
+    width: 18px;
+    height: 18px;
+    color: #ffd700;
+}
+
+.hidden {
+    display: none !important;
+}

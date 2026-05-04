@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chess Coach AI | Ton Assistant Personnel</title>
+    
+    <!-- iOS Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Chess Coach">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Chessboard.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+    
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+</head>
+<body>
+    <div class="background-decor">
+        <div class="chess-piece king">♚</div>
+        <div class="chess-piece knight">♞</div>
+    </div>
+
+    <div class="app-wrapper">
+        <header class="main-header">
+            <div class="logo">
+                <span class="icon" data-lucide="brain-circuit"></span>
+                <h1>Chess Coach AI</h1>
+            </div>
+            <p class="subtitle">Analyse interactive tour par tour.</p>
+        </header>
+
+        <main class="content-card">
+            <section class="search-section">
+                <div class="input-container">
+                    <span class="input-icon" data-lucide="user"></span>
+                    <input type="text" id="username" placeholder="Pseudo Chess.com" autocomplete="off">
+                </div>
+                <button id="analyze-btn" class="primary-btn">
+                    <span class="btn-text">Lancer le bilan de partie</span>
+                    <span class="btn-icon" data-lucide="zap"></span>
+                </button>
+            </section>
+
+            <div id="status-container" class="status-container">
+                <div id="status" class="status-text">Prêt à analyser ta partie...</div>
+                <div id="progress-bar" class="progress-bar hidden">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- SECTION ECHIQUIER AVEC BARRE D'EVAL -->
+            <div id="analysis-board-container" class="analysis-board-container hidden">
+                <div class="board-and-eval">
+                    <div id="eval-bar" class="eval-bar">
+                        <div id="eval-fill" class="eval-fill"></div>
+                        <div id="eval-score-text" class="eval-score-text">0.0</div>
+                    </div>
+                    <div id="myBoard"></div>
+                </div>
+                
+                <div class="board-controls">
+                    <button id="prev-btn" class="control-btn"><span data-lucide="chevron-left"></span></button>
+                    <div id="move-info" class="move-info">Coup 0</div>
+                    <button id="next-btn" class="control-btn"><span data-lucide="chevron-right"></span></button>
+                </div>
+                
+                <div id="move-rating" class="move-rating hidden">
+                    <span id="rating-icon" class="rating-icon">❓</span>
+                    <span id="rating-label" class="rating-label">Coup Incertain</span>
+                </div>
+            </div>
+
+            <article id="coach-feedback" class="feedback-article hidden">
+                <div class="report-body">
+                    <h2 id="feedback-title">Analyse du Coach</h2>
+                    <div class="divider"></div>
+                
+                <div id="opening-name" class="opening-banner hidden">
+                    <span class="icon" data-lucide="book-open"></span>
+                    <span id="opening-text">Ouverture...</span>
+                </div>
+
+                <div id="feedback-text" class="feedback-text">
+                    Clique sur les flèches pour naviguer dans la partie.
+                </div>
+                </div>
+
+                <div class="report-footer">
+                    <div class="tip-box">
+                        <span class="tip-icon" data-lucide="lightbulb"></span>
+                        <p id="coach-tip">Utilise les flèches pour voir l'analyse de chaque coup.</p>
+                    </div>
+                </div>
+            </article>
+        </main>
+
+        <footer class="app-footer">
+            <p>Style Chess.com Edition</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
