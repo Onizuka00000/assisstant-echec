@@ -334,6 +334,54 @@ input[type="text"]:focus {
     border: 4px solid var(--chess-border);
 }
 
+.navigation-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #262421;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.nav-btn {
+    background: #312e2b;
+    border: none;
+    color: #bab9b8;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex: 1;
+}
+
+.nav-btn:hover {
+    background: #403d39;
+    color: #fff;
+}
+
+.nav-btn.secondary {
+    color: #f7da21; /* Couleur jaune éclair */
+    flex: 0.7;
+}
+
+.nav-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.move-info {
+    font-weight: 700;
+    font-size: 1rem;
+    min-width: 100px;
+    text-align: center;
+    color: #fff;
+}
+
 .board-controls {
     display: flex;
     align-items: center;
@@ -357,12 +405,6 @@ input[type="text"]:focus {
 
 .control-btn:hover {
     background-color: rgba(255, 255, 255, 0.1);
-}
-
-.move-info {
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: var(--text-white);
 }
 
 /* Move Rating Badges */

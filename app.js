@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
+    const prevKeyBtn = document.getElementById('prev-key-btn');
+    const nextKeyBtn = document.getElementById('next-key-btn');
     const moveInfo = document.getElementById('move-info');
     const moveRating = document.getElementById('move-rating');
     const ratingIcon = document.getElementById('rating-icon');
@@ -48,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetUI();
 
         try {
-            statusEl.textContent = "Recherche des parties...";
+            statusEl.textContent = "Accès Chess.com...";
             const archivesRes = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
             const archivesData = await archivesRes.json();
             if (!archivesData.archives.length) throw new Error("Aucune partie.");
@@ -80,9 +82,13 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let i = 0; i < history.length; i++) {
                 const move = history[i];
                 const fenBefore = analysisTracker.fen();
-                statusEl.textContent = `Analyse tactique : ${Math.round((i / history.length) * 100)}%`;
+                statusEl.textContent = `Analyse Turbo : ${Math.round((i / history.length) * 100)}%`;
                 
-                const result = await analyzePosition(engine, fenBefore, lastEval);
+                let depth = 10;
+                if (i < 8) depth = 6;
+                else if (move.color !== userColor) depth = 8;
+
+                const result = await analyzePosition(engine, fenBefore, lastEval, depth);
                 
                 analysisTracker.move(move.san);
                 const currentFen = analysisTracker.fen();
@@ -90,14 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const diff = move.color === 'w' ? (result.eval - lastEval) : (lastEval - result.eval);
                 const isBestMove = move.from + move.to === result.bestMove;
 
-                // Logique de détection tactique simplifiée
                 let tacticalNote = "";
                 if (diff < -3) {
-                    if (move.san.includes('Q')) tacticalNote = "Tu as perdu ta Dame sur ce coup !";
-                    else if (move.san.includes('R')) tacticalNote = "Une Tour a été sacrifiée ou perdue.";
-                    else tacticalNote = "Tu as perdu beaucoup de matériel ici.";
-                } else if (result.eval > 8 || result.eval < -8) {
-                    tacticalNote = "Un échec et mat est proche, la situation est critique.";
+                    if (move.san.includes('Q')) tacticalNote = "Tu as perdu ta Dame !";
+                    else if (move.san.includes('R')) tacticalNote = "Une Tour a été perdue.";
+                    else tacticalNote = "Perte de matériel importante.";
                 }
 
                 analysisData.push({
@@ -116,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             setTimeout(() => {
-                statusEl.textContent = "Analyse Coach Terminée !";
+                statusEl.textContent = "Analyse Terminée !";
                 progressBar.classList.add('hidden');
                 boardContainer.classList.remove('hidden');
                 feedbackContainer.classList.remove('hidden');
@@ -135,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function analyzePosition(engine, fen, fallbackEval) {
+    function analyzePosition(engine, fen, fallbackEval, depth) {
         return new Promise((resolve) => {
             let latestEval = fallbackEval;
             let pvSan = [];
@@ -172,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             engine.addEventListener('message', onMsg);
             engine.postMessage(`position fen ${fen}`);
-            engine.postMessage('go depth 12');
+            engine.postMessage(`go depth ${depth}`);
         });
     }
 
@@ -188,6 +191,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     prevBtn.addEventListener('click', () => { if (currentMoveIndex >= 0) { currentMoveIndex--; updateMoveUI(); } });
     nextBtn.addEventListener('click', () => { if (currentMoveIndex < analysisData.length - 1) { currentMoveIndex++; updateMoveUI(); } });
+
+    // NAVIGATION PAR MOMENTS CLÉS
+    nextKeyBtn.addEventListener('click', () => {
+        for (let i = currentMoveIndex + 1; i < analysisData.length; i++) {
+            const rating = analysisData[i].rating.label;
+            if (analysisData[i].color === userColor && (rating === 'GAFFE' || rating === 'Erreur' || rating === 'Best Move' || rating === 'Excellent')) {
+                currentMoveIndex = i;
+                updateMoveUI();
+                break;
+            }
+        }
+    });
+
+    prevKeyBtn.addEventListener('click', () => {
+        for (let i = currentMoveIndex - 1; i >= 0; i--) {
+            const rating = analysisData[i].rating.label;
+            if (analysisData[i].color === userColor && (rating === 'GAFFE' || rating === 'Erreur' || rating === 'Best Move' || rating === 'Excellent')) {
+                currentMoveIndex = i;
+                updateMoveUI();
+                break;
+            }
+        }
+    });
 
     function updateMoveUI() {
         if (currentMoveIndex === -1) {
@@ -233,7 +259,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (data.rating.label === 'GAFFE') msg = "Aïe... C'est une gaffe.";
             else msg = "C'est un coup solide.";
 
-            // Ajout de la note tactique
             if (data.tacticalNote) {
                 msg = `<span class="tactical-warning">⚠️ ${data.tacticalNote}</span><br>` + msg;
             }
@@ -243,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         feedbackText.innerHTML = msg;
-        coachTip.textContent = `Analyse Stockfish (Profondeur 12)`;
+        coachTip.textContent = `Analyse Turbo (Profondeur variable)`;
     }
 
     function resetUI() {
