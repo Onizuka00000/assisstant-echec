@@ -20,8 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const moveInfo = document.getElementById('move-info');
     const moveRating = document.getElementById('move-rating');
-    const ratingIcon = document.getElementById('rating-icon');
-    const ratingLabel = document.getElementById('rating-label');
+    const ratingIcon = document.getElementById('rating-icon-main');
+    const ratingLabel = document.getElementById('rating-label-main');
 
     let board = null;
     let workers = [];
@@ -140,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 analysisData.push({
                     fen: positions[i].fen,
+                    prevFen: positions[i-1].fen,
                     san: move.san,
                     eval: evalAfter,
                     rating: classifyMoveChessCom(diff, isBestMove, i),
@@ -264,42 +265,44 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMoveUI();
     }
 
-    // NOUVELLE FONCTION DE SIMULATION TACTIQUE
-    async function runTacticalSimulation(lineUci) {
+    // NOUVELLE FONCTION DE SIMULATION TACTIQUE AMELIOREE
+    async function runTacticalSimulation(lineUci, startFromPrev = false) {
         if (isAnimating || !lineUci || lineUci.length === 0) return;
         isAnimating = true;
         clearArrows();
         
-        const originalFen = analysisData[currentMoveIndex].fen;
-        const simGame = new Chess(originalFen);
+        // Si startFromPrev est vrai, on repart de la position AVANT le coup du joueur
+        const startingFen = startFromPrev ? analysisData[currentMoveIndex].prevFen : analysisData[currentMoveIndex].fen;
+        const simGame = new Chess(startingFen);
         
+        board.position(startingFen, true);
+        await new Promise(r => setTimeout(r, 400));
+
         for (const moveUci of lineUci.slice(0, 3)) {
             simGame.move({ from: moveUci.substring(0, 2), to: moveUci.substring(2, 4), promotion: 'q' });
             board.position(simGame.fen(), true);
-            await new Promise(r => setTimeout(r, 600)); // Vitesse de simulation
+            await new Promise(r => setTimeout(r, 700)); 
         }
 
-        await new Promise(r => setTimeout(r, 1500)); // Pause pour observer le résultat
-        board.position(originalFen, true);
+        await new Promise(r => setTimeout(r, 1500)); 
+        board.position(analysisData[currentMoveIndex].fen, true); // On revient à la position actuelle
         isAnimating = false;
         updateMoveUI();
     }
 
     showPunishmentBtn.addEventListener('click', () => {
         const data = analysisData[currentMoveIndex];
-        runTacticalSimulation(data.punishmentLineUci);
+        runTacticalSimulation(data.punishmentLineUci, false); // On punit à partir de la gaffe déjà faite
     });
 
     showBestSimBtn.addEventListener('click', () => {
         const data = analysisData[currentMoveIndex];
-        // Pour simuler le meilleur coup, on doit d'abord jouer le meilleur coup lui-même
-        if (data.bestLineUci) runTacticalSimulation(data.bestLineUci);
+        runTacticalSimulation(data.bestLineUci, true); // On remonte le temps pour montrer le meilleur coup
     });
 
     function clearArrows() {
         const svg = document.getElementById('drawing-layer');
         if (svg) {
-            // On ne supprime que les lignes, pas les <defs> qui contiennent les pointes
             const lines = svg.querySelectorAll('line');
             lines.forEach(l => l.remove());
         }
@@ -329,18 +332,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = getCoords(from);
         const end = getCoords(to);
 
+        // On raccourcit un peu la ligne pour que la pointe s'ajuste parfaitement
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const angle = Math.atan2(dy, dx);
+        const length = Math.sqrt(dx*dx + dy*dy);
+        const shorten = 3; // On réduit de 3% la longueur
+        
+        const endX = start.x + (length - shorten) * Math.cos(angle);
+        const endY = start.y + (length - shorten) * Math.sin(angle);
+
         const color = type === 'best' ? 'rgba(129, 182, 76, 0.85)' : 'rgba(250, 49, 35, 0.85)';
         const markerId = type === 'best' ? 'arrowhead-green' : 'arrowhead-red';
-        // Correctif Safari : utiliser l'URL absolue du document pour la référence au fragment
         const baseUrl = window.location.href.split('#')[0];
 
         const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         arrow.setAttribute('x1', start.x);
         arrow.setAttribute('y1', start.y);
-        arrow.setAttribute('x2', end.x);
-        arrow.setAttribute('y2', end.y);
+        arrow.setAttribute('x2', endX);
+        arrow.setAttribute('y2', endY);
         arrow.setAttribute('stroke', color);
-        arrow.setAttribute('stroke-width', '1.8');
+        arrow.setAttribute('stroke-width', '2');
         arrow.setAttribute('stroke-linecap', 'round');
         arrow.setAttribute('marker-end', `url(${baseUrl}#${markerId})`);
 
@@ -412,11 +424,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ratingIcon.textContent = data.rating.icon;
         ratingLabel.textContent = data.rating.label;
 
-        // Gestion des boutons de simulation
         simControls.classList.remove('hidden');
         const isBad = data.rating.label === 'GAFFE' || data.rating.label === 'Erreur' || data.rating.label === 'Incertain';
         showPunishmentBtn.classList.toggle('hidden', !isBad);
         showBestSimBtn.classList.toggle('hidden', data.rating.label === 'Best Move');
+        
+        if (window.lucide) lucide.createIcons();
 
         let msg = "";
         if (data.rating.label === 'Best Move') {

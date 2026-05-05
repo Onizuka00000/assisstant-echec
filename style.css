@@ -454,13 +454,55 @@ input[type="text"]:focus {
 }
 
 .move-rating {
+    padding: 14px 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--chess-border);
+}
+
+.rating-left {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 16px;
-    border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--chess-border);
+}
+
+.sim-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.action-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.action-btn svg {
+    width: 18px;
+    height: 18px;
 }
 
 .rating-icon {
@@ -524,53 +566,6 @@ input[type="text"]:focus {
     width: 18px;
     height: 18px;
     color: #ffd700;
-}
-
-.sim-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin: 15px 0;
-}
-
-.sim-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
-    font-family: 'Outfit', sans-serif;
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.sim-btn svg {
-    width: 18px;
-    height: 18px;
-}
-
-.sim-btn.red {
-    background: rgba(250, 49, 35, 0.15);
-    color: #fa3123;
-    border: 1px solid rgba(250, 49, 35, 0.3);
-}
-
-.sim-btn.red:hover {
-    background: rgba(250, 49, 35, 0.25);
-}
-
-.sim-btn.green {
-    background: rgba(129, 182, 76, 0.15);
-    color: #81b64c;
-    border: 1px solid rgba(129, 182, 76, 0.3);
-}
-
-.sim-btn.green:hover {
-    background: rgba(129, 182, 76, 0.25);
 }
 
 .hidden {
