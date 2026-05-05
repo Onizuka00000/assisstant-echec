@@ -18,25 +18,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const ratingLabel = document.getElementById('rating-label');
 
     let board = null;
-    let stockfish = null;
+    let workers = [];
     let analysisData = []; 
     let currentMoveIndex = -1;
     let userColor = 'w';
+    let isAnimating = false;
 
     board = Chessboard('myBoard', {
         position: 'start',
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
     });
 
-    async function initStockfish() {
-        if (stockfish) return stockfish;
+    async function getWorker() {
         const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
         const script = await response.text();
         const blob = new Blob([script], { type: 'application/javascript' });
-        stockfish = new Worker(URL.createObjectURL(blob));
-        stockfish.postMessage('uci');
-        stockfish.postMessage('isready');
-        return stockfish;
+        const worker = new Worker(URL.createObjectURL(blob));
+        worker.postMessage('uci');
+        return worker;
     }
 
     function frenchNotation(san) {
@@ -50,19 +49,28 @@ document.addEventListener('DOMContentLoaded', () => {
         resetUI();
 
         try {
-            statusEl.textContent = "Accès Chess.com...";
+            statusEl.textContent = "Recherche de ta dernière partie...";
             const archivesRes = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
-            const archivesData = await archivesRes.json();
-            if (!archivesData.archives.length) throw new Error("Aucune partie.");
-            
-            const lastMonthUrl = archivesData.archives[archivesData.archives.length - 1];
+            const archivesDataRes = await archivesRes.json();
+            const lastMonthUrl = archivesDataRes.archives[archivesDataRes.archives.length - 1];
             const gamesRes = await fetch(lastMonthUrl);
             const gamesData = await gamesRes.json();
             const lastGame = gamesData.games[gamesData.games.length - 1];
+            const gameId = lastGame.url;
+
+            const cached = localStorage.getItem(`chess_analysis_${gameId}`);
+            if (cached) {
+                statusEl.textContent = "Analyse chargée !";
+                const parsed = JSON.parse(cached);
+                analysisData = parsed.data;
+                userColor = parsed.userColor;
+                document.getElementById('opening-text').textContent = parsed.opening;
+                document.getElementById('opening-name').classList.remove('hidden');
+                finishAnalysis();
+                return;
+            }
 
             userColor = lastGame.white.username.toLowerCase() === username.toLowerCase() ? 'w' : 'b';
-
-            const engine = await initStockfish();
             const gameParser = new Chess();
             gameParser.load_pgn(lastGame.pgn);
             const history = gameParser.history({ verbose: true });
@@ -75,26 +83,45 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('opening-text').textContent = openingName;
             document.getElementById('opening-name').classList.remove('hidden');
 
-            const analysisTracker = new Chess();
-            analysisData = [];
-            let lastEval = 0.3;
+            if (workers.length === 0) {
+                workers = await Promise.all([getWorker(), getWorker()]);
+            }
 
-            for (let i = 0; i < history.length; i++) {
-                const move = history[i];
-                const fenBefore = analysisTracker.fen();
-                statusEl.textContent = `Analyse Turbo : ${Math.round((i / history.length) * 100)}%`;
-                
+            const positions = [];
+            const tempTracker = new Chess();
+            positions.push({ fen: tempTracker.fen(), move: null });
+            for (const m of history) {
+                tempTracker.move(m.san);
+                positions.push({ fen: tempTracker.fen(), move: m });
+            }
+
+            const results = new Array(positions.length);
+            let completedCount = 0;
+            
+            const runTask = async (worker, index) => {
+                if (index >= positions.length) return;
                 let depth = 10;
-                if (i < 8) depth = 6;
-                else if (move.color !== userColor) depth = 8;
+                if (index < 10) depth = 6;
+                else if (positions[index].move && positions[index].move.color !== userColor) depth = 8;
 
-                const result = await analyzePosition(engine, fenBefore, lastEval, depth);
+                results[index] = await analyzePosition(worker, positions[index].fen, depth);
+                completedCount++;
+                const progress = Math.round((completedCount / positions.length) * 100);
+                document.querySelector('.progress-fill').style.width = `${progress}%`;
+                statusEl.textContent = `Analyse Dual-Core : ${progress}%`;
                 
-                analysisTracker.move(move.san);
-                const currentFen = analysisTracker.fen();
-                
-                const diff = move.color === 'w' ? (result.eval - lastEval) : (lastEval - result.eval);
-                const isBestMove = move.from + move.to === result.bestMove;
+                await runTask(worker, index + workers.length);
+            };
+
+            await Promise.all(workers.map((w, i) => runTask(w, i)));
+
+            analysisData = [];
+            for (let i = 1; i < positions.length; i++) {
+                const move = history[i-1];
+                const evalBefore = results[i-1].eval;
+                const evalAfter = results[i].eval;
+                const diff = move.color === 'w' ? (evalAfter - evalBefore) : (evalBefore - evalAfter);
+                const isBestMove = results[i-1].bestMove === (move.from + move.to);
 
                 let tacticalNote = "";
                 if (diff < -3) {
@@ -104,33 +131,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 analysisData.push({
-                    fen: currentFen,
+                    fen: positions[i].fen,
                     san: move.san,
-                    eval: result.eval,
+                    eval: evalAfter,
                     rating: classifyMoveChessCom(diff, isBestMove, i),
-                    bestMoveSan: result.bestMoveSan,
-                    bestLine: result.pv,
+                    bestMoveSan: results[i-1].bestMoveSan,
+                    bestLine: results[i-1].pv,
                     tacticalNote: tacticalNote,
                     color: move.color
                 });
-
-                lastEval = result.eval;
-                document.querySelector('.progress-fill').style.width = `${Math.round(((i + 1) / history.length) * 100)}%`;
             }
 
-            setTimeout(() => {
-                statusEl.textContent = "Analyse Terminée !";
-                progressBar.classList.add('hidden');
-                boardContainer.classList.remove('hidden');
-                feedbackContainer.classList.remove('hidden');
-                board.resize();
-                currentMoveIndex = -1;
-                updateMoveUI();
-                analyzeBtn.disabled = false;
-                analyzeBtn.style.opacity = '1';
-                analyzeBtn.innerHTML = 'Relancer l\'analyse <span data-lucide="refresh-cw"></span>';
-                if (window.lucide) lucide.createIcons();
-            }, 600);
+            localStorage.setItem(`chess_analysis_${gameId}`, JSON.stringify({
+                data: analysisData,
+                userColor,
+                opening: openingName
+            }));
+
+            finishAnalysis();
 
         } catch (error) {
             statusEl.textContent = "Erreur : " + error.message;
@@ -138,44 +156,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function analyzePosition(engine, fen, fallbackEval, depth) {
+    function finishAnalysis() {
+        statusEl.textContent = "Prêt !";
+        progressBar.classList.add('hidden');
+        boardContainer.classList.remove('hidden');
+        feedbackContainer.classList.remove('hidden');
+        board.resize();
+        currentMoveIndex = -1;
+        updateMoveUI();
+        analyzeBtn.disabled = false;
+        analyzeBtn.style.opacity = '1';
+        analyzeBtn.innerHTML = 'Relancer l\'analyse <span data-lucide="refresh-cw"></span>';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function analyzePosition(worker, fen, depth) {
         return new Promise((resolve) => {
-            let latestEval = fallbackEval;
-            let pvSan = [];
+            let lastWorkerEval = 0;
+            let lastWorkerPv = [];
+            let bestMoveUci = "";
+
             const timeout = setTimeout(() => {
-                engine.removeEventListener('message', onMsg);
-                resolve({ eval: latestEval, bestMove: "", bestMoveSan: "?", pv: [] });
-            }, 5000);
+                worker.removeEventListener('message', onMsg);
+                worker.postMessage('stop');
+                resolve({ eval: lastWorkerEval, bestMove: "", bestMoveSan: "?", pv: [] });
+            }, 6000);
 
             const onMsg = (e) => {
                 const msg = e.data;
+                if (msg.startsWith('bestmove')) {
+                    clearTimeout(timeout);
+                    worker.removeEventListener('message', onMsg);
+                    bestMoveUci = msg.split(' ')[1];
+                    const temp = new Chess(fen);
+                    const m = temp.move({ from: bestMoveUci.substring(0,2), to: bestMoveUci.substring(2,4), promotion: 'q' });
+                    resolve({ 
+                        eval: lastWorkerEval, 
+                        bestMove: bestMoveUci, 
+                        bestMoveSan: m ? frenchNotation(m.san) : bestMoveUci, 
+                        pv: lastWorkerPv 
+                    });
+                }
                 if (msg.includes('score cp') || msg.includes('score mate')) {
                     const parts = msg.split(' ');
-                    if (msg.includes('cp')) latestEval = parseInt(parts[parts.indexOf('cp') + 1]) / 100;
-                    else if (msg.includes('mate')) latestEval = parseInt(parts[parts.indexOf('mate') + 1]) > 0 ? 15 : -15;
+                    if (msg.includes('cp')) lastWorkerEval = parseInt(parts[parts.indexOf('cp') + 1]) / 100;
+                    else if (msg.includes('mate')) lastWorkerEval = parseInt(parts[parts.indexOf('mate') + 1]) > 0 ? 15 : -15;
 
                     if (msg.includes('pv')) {
                         const partsPv = msg.split(' ');
                         const rawPv = partsPv.slice(partsPv.indexOf('pv') + 1, partsPv.indexOf('pv') + 5);
                         const tempGame = new Chess(fen);
-                        pvSan = rawPv.map(uci => {
+                        lastWorkerPv = rawPv.map(uci => {
                             const m = tempGame.move({ from: uci.substring(0,2), to: uci.substring(2,4), promotion: 'q' });
                             return m ? frenchNotation(m.san) : uci;
                         });
                     }
                 }
-                if (msg.startsWith('bestmove')) {
-                    clearTimeout(timeout);
-                    engine.removeEventListener('message', onMsg);
-                    const bestMoveUci = msg.split(' ')[1];
-                    const temp = new Chess(fen);
-                    const m = temp.move({ from: bestMoveUci.substring(0,2), to: bestMoveUci.substring(2,4), promotion: 'q' });
-                    resolve({ eval: latestEval, bestMove: bestMoveUci, bestMoveSan: m ? frenchNotation(m.san) : bestMoveUci, pv: pvSan });
-                }
             };
-            engine.addEventListener('message', onMsg);
-            engine.postMessage(`position fen ${fen}`);
-            engine.postMessage(`go depth ${depth}`);
+            
+            worker.addEventListener('message', onMsg);
+            worker.postMessage(`position fen ${fen}`);
+            worker.postMessage(`go depth ${depth}`);
         });
     }
 
@@ -189,27 +230,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return { label: 'GAFFE', icon: '🔴', class: 'rating-blunder' };
     }
 
-    prevBtn.addEventListener('click', () => { if (currentMoveIndex >= 0) { currentMoveIndex--; updateMoveUI(); } });
-    nextBtn.addEventListener('click', () => { if (currentMoveIndex < analysisData.length - 1) { currentMoveIndex++; updateMoveUI(); } });
+    async function animateToMove(targetIndex) {
+        if (isAnimating) return;
+        isAnimating = true;
+        const direction = targetIndex > currentMoveIndex ? 1 : -1;
+        const delay = 120;
+        while (currentMoveIndex !== targetIndex) {
+            currentMoveIndex += direction;
+            board.position(analysisData[currentMoveIndex].fen, true);
+            moveInfo.textContent = `Coup ${Math.floor(currentMoveIndex / 2) + 1} (${frenchNotation(analysisData[currentMoveIndex].san)})`;
+            await new Promise(r => setTimeout(r, delay));
+        }
+        isAnimating = false;
+        updateMoveUI();
+    }
 
-    // NAVIGATION PAR MOMENTS CLÉS
+    prevBtn.addEventListener('click', () => { if (!isAnimating && currentMoveIndex >= 0) { currentMoveIndex--; updateMoveUI(); } });
+    nextBtn.addEventListener('click', () => { if (!isAnimating && currentMoveIndex < analysisData.length - 1) { currentMoveIndex++; updateMoveUI(); } });
+
     nextKeyBtn.addEventListener('click', () => {
+        if (isAnimating) return;
         for (let i = currentMoveIndex + 1; i < analysisData.length; i++) {
             const rating = analysisData[i].rating.label;
             if (analysisData[i].color === userColor && (rating === 'GAFFE' || rating === 'Erreur' || rating === 'Best Move' || rating === 'Excellent')) {
-                currentMoveIndex = i;
-                updateMoveUI();
+                animateToMove(i);
                 break;
             }
         }
     });
 
     prevKeyBtn.addEventListener('click', () => {
+        if (isAnimating) return;
         for (let i = currentMoveIndex - 1; i >= 0; i--) {
             const rating = analysisData[i].rating.label;
             if (analysisData[i].color === userColor && (rating === 'GAFFE' || rating === 'Erreur' || rating === 'Best Move' || rating === 'Excellent')) {
-                currentMoveIndex = i;
-                updateMoveUI();
+                animateToMove(i);
                 break;
             }
         }
@@ -263,12 +318,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 msg = `<span class="tactical-warning">⚠️ ${data.tacticalNote}</span><br>` + msg;
             }
 
+            // AFFICHAGE DU MEILLEUR COUP (RESTAURÉ)
             const line = data.bestLine && data.bestLine.length > 0 ? `<br><span class="simulation-text">Simulation : ${data.bestLine.join(' ')} ...</span>` : "";
             msg += `<br><div class="best-move-suggestion">Le meilleur coup était : <strong>${data.bestMoveSan}</strong>${line}</div>`;
         }
         
         feedbackText.innerHTML = msg;
-        coachTip.textContent = `Analyse Turbo (Profondeur variable)`;
+        coachTip.textContent = `Analyse Turbo (Dual-Core)`;
     }
 
     function resetUI() {
