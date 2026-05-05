@@ -303,9 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearArrows() {
         const svg = document.getElementById('drawing-layer');
         if (svg) {
-            const groups = svg.querySelectorAll('g');
-            groups.forEach(g => g.remove());
-            const lines = svg.querySelectorAll('line'); // sécurité
+            const lines = svg.querySelectorAll('line');
             lines.forEach(l => l.remove());
         }
     }
@@ -334,23 +332,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = getCoords(from);
         const end = getCoords(to);
 
-        // On raccourcit la ligne pour qu'elle s'insère parfaitement dans l'encoche de la flèche
         const dx = end.x - start.x;
         const dy = end.y - start.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        if (length === 0) return;
+
         const angle = Math.atan2(dy, dx);
-        const length = Math.sqrt(dx*dx + dy*dy);
-        const shorten = 4.5; // Correspond à la profondeur de l'encoche du marqueur Dart
+        const shorten = 6; 
         
         const endX = start.x + (length - shorten) * Math.cos(angle);
         const endY = start.y + (length - shorten) * Math.sin(angle);
 
-        const color = type === 'best' ? '#81b64c' : '#fa3123';
+        const color = type === 'best' ? 'rgba(129, 182, 76, 0.9)' : 'rgba(250, 49, 35, 0.9)';
         const markerId = type === 'best' ? 'arrowhead-green' : 'arrowhead-red';
-        const baseUrl = window.location.href.split('#')[0];
-
-        // Regroupement transparent pour éviter la superposition visuelle
-        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        group.setAttribute('opacity', '0.85');
+        
+        // Version plus robuste du lien marker
+        const markerUrl = `url(#${markerId})`;
 
         const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         arrow.setAttribute('x1', start.x);
@@ -358,12 +356,11 @@ document.addEventListener('DOMContentLoaded', () => {
         arrow.setAttribute('x2', endX);
         arrow.setAttribute('y2', endY);
         arrow.setAttribute('stroke', color);
-        arrow.setAttribute('stroke-width', '1.8'); 
+        arrow.setAttribute('stroke-width', '2');
         arrow.setAttribute('stroke-linecap', 'butt');
-        arrow.setAttribute('marker-end', `url(${baseUrl}#${markerId})`);
+        arrow.setAttribute('marker-end', markerUrl);
 
-        group.appendChild(arrow);
-        svg.appendChild(group);
+        svg.appendChild(arrow);
     }
 
     toggleArrowsBtn.addEventListener('click', () => {

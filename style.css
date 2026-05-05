@@ -30,27 +30,6 @@ body {
     padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* background decoration */
-.background-decor {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    overflow: hidden;
-    pointer-events: none;
-}
-
-.chess-piece {
-    position: absolute;
-    font-size: 20rem;
-    color: rgba(255, 255, 255, 0.02);
-    user-select: none;
-}
-
-.king { top: -5%; right: -5%; transform: rotate(15deg); }
-.knight { bottom: -5%; left: -5%; transform: rotate(-15deg); }
 
 .app-wrapper {
     width: 100%;
@@ -566,6 +545,28 @@ input[type="text"]:focus {
     width: 18px;
     height: 18px;
     color: #ffd700;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .hidden {
