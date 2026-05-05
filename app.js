@@ -136,7 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     eval: evalAfter,
                     rating: classifyMoveChessCom(diff, isBestMove, i),
                     bestMoveSan: results[i-1].bestMoveSan,
+                    bestMoveUci: results[i-1].bestMove,
                     bestLine: results[i-1].pv,
+                    opponentThreat: results[i].pv && results[i].pv.length > 0 ? results[i].bestMove : null,
                     tacticalNote: tacticalNote,
                     color: move.color
                 });
@@ -174,20 +176,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Promise((resolve) => {
             let lastWorkerEval = 0;
             let lastWorkerPv = [];
-            let bestMoveUci = "";
-
-            const timeout = setTimeout(() => {
-                worker.removeEventListener('message', onMsg);
-                worker.postMessage('stop');
-                resolve({ eval: lastWorkerEval, bestMove: "", bestMoveSan: "?", pv: [] });
-            }, 6000);
-
+            let lastBestMove = "";
             const onMsg = (e) => {
                 const msg = e.data;
                 if (msg.startsWith('bestmove')) {
-                    clearTimeout(timeout);
                     worker.removeEventListener('message', onMsg);
-                    bestMoveUci = msg.split(' ')[1];
+                    const bestMoveUci = msg.split(' ')[1];
                     const temp = new Chess(fen);
                     const m = temp.move({ from: bestMoveUci.substring(0,2), to: bestMoveUci.substring(2,4), promotion: 'q' });
                     resolve({ 
@@ -205,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (msg.includes('pv')) {
                         const partsPv = msg.split(' ');
                         const rawPv = partsPv.slice(partsPv.indexOf('pv') + 1, partsPv.indexOf('pv') + 5);
+                        lastBestMove = rawPv[0];
                         const tempGame = new Chess(fen);
                         lastWorkerPv = rawPv.map(uci => {
                             const m = tempGame.move({ from: uci.substring(0,2), to: uci.substring(2,4), promotion: 'q' });
@@ -213,7 +208,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             };
-            
             worker.addEventListener('message', onMsg);
             worker.postMessage(`position fen ${fen}`);
             worker.postMessage(`go depth ${depth}`);
@@ -245,6 +239,63 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMoveUI();
     }
 
+    function clearArrows() {
+        document.getElementById('drawing-layer').innerHTML = '';
+    }
+
+    function drawArrow(uci, color) {
+        if (!uci || uci.length < 4) return;
+        const from = uci.substring(0, 2);
+        const to = uci.substring(2, 4);
+        
+        const svg = document.getElementById('drawing-layer');
+        const boardEl = document.getElementById('myBoard');
+        const boardSize = boardEl.offsetWidth;
+        const squareSize = boardSize / 8;
+
+        const getCoords = (sq) => {
+            const col = sq.charCodeAt(0) - 97;
+            const row = 8 - parseInt(sq[1]);
+            // Si on est noirs, l'échiquier est inversé
+            const finalCol = userColor === 'w' ? col : 7 - col;
+            const finalRow = userColor === 'w' ? row : 7 - row;
+            return {
+                x: (finalCol + 0.5) * squareSize,
+                y: (finalRow + 0.5) * squareSize
+            };
+        };
+
+        const start = getCoords(from);
+        const end = getCoords(to);
+
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        arrow.setAttribute('x1', start.x);
+        arrow.setAttribute('y1', start.y);
+        arrow.setAttribute('x2', end.x);
+        arrow.setAttribute('y2', end.y);
+        arrow.setAttribute('stroke', color);
+        arrow.setAttribute('stroke-width', squareSize * 0.15);
+        arrow.setAttribute('opacity', '0.6');
+        arrow.setAttribute('marker-end', `url(#arrowhead-${color === 'rgba(129, 182, 76, 0.8)' ? 'green' : 'red'})`);
+        
+        // Créer le marqueur (pointe de flèche) si pas déjà présent
+        if (!document.getElementById('arrow-defs')) {
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            defs.id = 'arrow-defs';
+            defs.innerHTML = `
+                <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="rgba(129, 182, 76, 0.9)" />
+                </marker>
+                <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="rgba(250, 49, 35, 0.9)" />
+                </marker>
+            `;
+            svg.appendChild(defs);
+        }
+
+        svg.appendChild(arrow);
+    }
+
     prevBtn.addEventListener('click', () => { if (!isAnimating && currentMoveIndex >= 0) { currentMoveIndex--; updateMoveUI(); } });
     nextBtn.addEventListener('click', () => { if (!isAnimating && currentMoveIndex < analysisData.length - 1) { currentMoveIndex++; updateMoveUI(); } });
 
@@ -271,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function updateMoveUI() {
+        clearArrows();
         if (currentMoveIndex === -1) {
             board.position('start', true);
             moveInfo.textContent = "Début";
@@ -287,9 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('eval-fill').style.height = `${percent}%`;
         const evalText = document.getElementById('eval-score-text');
         evalText.textContent = Math.abs(data.eval).toFixed(1);
-        evalText.style.top = data.eval >= 0 ? 'auto' : '5px';
-        evalText.style.bottom = data.eval >= 0 ? '5px' : 'auto';
-        evalText.style.color = data.eval >= 0 ? '#312e2b' : '#bab9b8';
 
         if (data.color !== userColor) {
             moveRating.classList.add('hidden');
@@ -316,9 +365,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.tacticalNote) {
                 msg = `<span class="tactical-warning">⚠️ ${data.tacticalNote}</span><br>` + msg;
+                // Si gaffe ou erreur, on dessine la menace de l'adversaire en rouge
+                if (data.opponentThreat) drawArrow(data.opponentThreat, 'rgba(250, 49, 35, 0.8)');
             }
 
-            // AFFICHAGE DU MEILLEUR COUP (RESTAURÉ)
+            // On dessine le meilleur coup en vert
+            if (data.bestMoveUci) drawArrow(data.bestMoveUci, 'rgba(129, 182, 76, 0.8)');
+
             const line = data.bestLine && data.bestLine.length > 0 ? `<br><span class="simulation-text">Simulation : ${data.bestLine.join(' ')} ...</span>` : "";
             msg += `<br><div class="best-move-suggestion">Le meilleur coup était : <strong>${data.bestMoveSan}</strong>${line}</div>`;
         }
