@@ -297,7 +297,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function clearArrows() {
-        document.getElementById('drawing-layer').innerHTML = '';
+        const svg = document.getElementById('drawing-layer');
+        if (svg) {
+            // On ne supprime que les lignes, pas les <defs> qui contiennent les pointes
+            const lines = svg.querySelectorAll('line');
+            lines.forEach(l => l.remove());
+        }
     }
 
     function drawArrow(uci, type) {
@@ -326,6 +331,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const color = type === 'best' ? 'rgba(129, 182, 76, 0.85)' : 'rgba(250, 49, 35, 0.85)';
         const markerId = type === 'best' ? 'arrowhead-green' : 'arrowhead-red';
+        // Correctif Safari : utiliser l'URL absolue du document pour la référence au fragment
+        const baseUrl = window.location.href.split('#')[0];
 
         const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         arrow.setAttribute('x1', start.x);
@@ -335,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         arrow.setAttribute('stroke', color);
         arrow.setAttribute('stroke-width', '1.8');
         arrow.setAttribute('stroke-linecap', 'round');
-        arrow.setAttribute('marker-end', `url(#${markerId})`);
+        arrow.setAttribute('marker-end', `url(${baseUrl}#${markerId})`);
 
         svg.appendChild(arrow);
     }
