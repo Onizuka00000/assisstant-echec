@@ -291,7 +291,17 @@ input[type="text"]:focus {
 .board-and-eval {
     display: flex;
     gap: 12px;
-    align-items: stretch; /* Force la barre et l'échiquier à la même hauteur */
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+#board-wrapper {
+    flex: 1;
+    position: relative;
+    min-width: 0; /* Important pour flexbox */
+}
+
+#myBoard {
     width: 100%;
 }
 
@@ -336,27 +346,33 @@ input[type="text"]:focus {
 
 .navigation-controls {
     display: flex;
+    justify-content: center;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    background: #262421;
+    gap: 8px; /* Réduit un peu l'espace */
+    margin-bottom: 24px;
+    background: rgba(255, 255, 255, 0.03);
     padding: 10px;
-    border-radius: 8px;
-    margin-bottom: 15px;
+    border-radius: 12px;
 }
 
 .nav-btn {
     background: #312e2b;
     border: none;
     color: #bab9b8;
-    padding: 10px;
-    border-radius: 6px;
-    cursor: pointer;
+    width: 44px; /* Un peu plus étroit */
+    height: 44px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
-    flex: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.nav-btn.active {
+    background: #81b64c;
+    color: white;
 }
 
 .nav-btn:hover {

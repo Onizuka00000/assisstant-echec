@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextBtn = document.getElementById('next-btn');
     const prevKeyBtn = document.getElementById('prev-key-btn');
     const nextKeyBtn = document.getElementById('next-key-btn');
+    const toggleArrowsBtn = document.getElementById('toggle-arrows-btn');
     const moveInfo = document.getElementById('move-info');
     const moveRating = document.getElementById('move-rating');
     const ratingIcon = document.getElementById('rating-icon');
@@ -23,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMoveIndex = -1;
     let userColor = 'w';
     let isAnimating = false;
+    let showArrows = true; // Par défaut activé
 
     board = Chessboard('myBoard', {
         position: 'start',
@@ -58,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const lastGame = gamesData.games[gamesData.games.length - 1];
             const gameId = lastGame.url;
 
-            const cached = localStorage.getItem(`chess_analysis_${gameId}`);
+            const cached = localStorage.getItem(`chess_analysis_v2_${gameId}`);
             if (cached) {
                 statusEl.textContent = "Analyse chargée !";
                 const parsed = JSON.parse(cached);
@@ -144,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            localStorage.setItem(`chess_analysis_${gameId}`, JSON.stringify({
+            localStorage.setItem(`chess_analysis_v2_${gameId}`, JSON.stringify({
                 data: analysisData,
                 userColor,
                 opening: openingName
@@ -163,9 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBar.classList.add('hidden');
         boardContainer.classList.remove('hidden');
         feedbackContainer.classList.remove('hidden');
-        board.resize();
-        currentMoveIndex = -1;
-        updateMoveUI();
+        
+        setTimeout(() => {
+            board.resize();
+            currentMoveIndex = -1;
+            updateMoveUI();
+        }, 100);
+
         analyzeBtn.disabled = false;
         analyzeBtn.style.opacity = '1';
         analyzeBtn.innerHTML = 'Relancer l\'analyse <span data-lucide="refresh-cw"></span>';
@@ -176,12 +182,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Promise((resolve) => {
             let lastWorkerEval = 0;
             let lastWorkerPv = [];
-            let lastBestMove = "";
+            let bestMoveUci = "";
+
+            const timeout = setTimeout(() => {
+                worker.removeEventListener('message', onMsg);
+                worker.postMessage('stop');
+                resolve({ eval: lastWorkerEval, bestMove: "", bestMoveSan: "?", pv: [] });
+            }, 6000);
+
             const onMsg = (e) => {
                 const msg = e.data;
                 if (msg.startsWith('bestmove')) {
+                    clearTimeout(timeout);
                     worker.removeEventListener('message', onMsg);
-                    const bestMoveUci = msg.split(' ')[1];
+                    bestMoveUci = msg.split(' ')[1];
                     const temp = new Chess(fen);
                     const m = temp.move({ from: bestMoveUci.substring(0,2), to: bestMoveUci.substring(2,4), promotion: 'q' });
                     resolve({ 
@@ -199,7 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (msg.includes('pv')) {
                         const partsPv = msg.split(' ');
                         const rawPv = partsPv.slice(partsPv.indexOf('pv') + 1, partsPv.indexOf('pv') + 5);
-                        lastBestMove = rawPv[0];
                         const tempGame = new Chess(fen);
                         lastWorkerPv = rawPv.map(uci => {
                             const m = tempGame.move({ from: uci.substring(0,2), to: uci.substring(2,4), promotion: 'q' });
@@ -208,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             };
+            
             worker.addEventListener('message', onMsg);
             worker.postMessage(`position fen ${fen}`);
             worker.postMessage(`go depth ${depth}`);
@@ -240,23 +254,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearArrows() {
-        document.getElementById('drawing-layer').innerHTML = '';
+        const svg = document.getElementById('drawing-layer');
+        if (svg) {
+            const lines = svg.querySelectorAll('line');
+            lines.forEach(l => l.remove());
+        }
     }
 
-    function drawArrow(uci, color) {
+    function drawArrow(uci, type) {
         if (!uci || uci.length < 4) return;
         const from = uci.substring(0, 2);
         const to = uci.substring(2, 4);
         
         const svg = document.getElementById('drawing-layer');
-        const boardEl = document.getElementById('myBoard');
-        const boardSize = boardEl.offsetWidth;
-        const squareSize = boardSize / 8;
+        if (!svg) return;
+        
+        const squareSize = 100 / 8; // Utilisation des pourcentages viewBox 0 0 100 100
 
         const getCoords = (sq) => {
             const col = sq.charCodeAt(0) - 97;
             const row = 8 - parseInt(sq[1]);
-            // Si on est noirs, l'échiquier est inversé
             const finalCol = userColor === 'w' ? col : 7 - col;
             const finalRow = userColor === 'w' ? row : 7 - row;
             return {
@@ -268,33 +285,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = getCoords(from);
         const end = getCoords(to);
 
+        const color = type === 'best' ? 'rgba(129, 182, 76, 0.85)' : 'rgba(250, 49, 35, 0.85)';
+        const markerId = type === 'best' ? 'arrowhead-green' : 'arrowhead-red';
+
         const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         arrow.setAttribute('x1', start.x);
         arrow.setAttribute('y1', start.y);
         arrow.setAttribute('x2', end.x);
         arrow.setAttribute('y2', end.y);
         arrow.setAttribute('stroke', color);
-        arrow.setAttribute('stroke-width', squareSize * 0.15);
-        arrow.setAttribute('opacity', '0.6');
-        arrow.setAttribute('marker-end', `url(#arrowhead-${color === 'rgba(129, 182, 76, 0.8)' ? 'green' : 'red'})`);
-        
-        // Créer le marqueur (pointe de flèche) si pas déjà présent
-        if (!document.getElementById('arrow-defs')) {
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            defs.id = 'arrow-defs';
-            defs.innerHTML = `
-                <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="rgba(129, 182, 76, 0.9)" />
-                </marker>
-                <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="rgba(250, 49, 35, 0.9)" />
-                </marker>
-            `;
-            svg.appendChild(defs);
-        }
+        arrow.setAttribute('stroke-width', '1.8'); // Épaisseur en pourcentage de la taille de l'échiquier
+        arrow.setAttribute('stroke-linecap', 'round');
+        arrow.setAttribute('marker-end', `url(#${markerId})`);
 
         svg.appendChild(arrow);
     }
+
+    toggleArrowsBtn.addEventListener('click', () => {
+        showArrows = !showArrows;
+        toggleArrowsBtn.classList.toggle('active', showArrows);
+        toggleArrowsBtn.innerHTML = showArrows ? '<i data-lucide="eye"></i>' : '<i data-lucide="eye-off"></i>';
+        if (window.lucide) lucide.createIcons();
+        updateMoveUI();
+    });
 
     prevBtn.addEventListener('click', () => { if (!isAnimating && currentMoveIndex >= 0) { currentMoveIndex--; updateMoveUI(); } });
     nextBtn.addEventListener('click', () => { if (!isAnimating && currentMoveIndex < analysisData.length - 1) { currentMoveIndex++; updateMoveUI(); } });
@@ -365,12 +378,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.tacticalNote) {
                 msg = `<span class="tactical-warning">⚠️ ${data.tacticalNote}</span><br>` + msg;
-                // Si gaffe ou erreur, on dessine la menace de l'adversaire en rouge
-                if (data.opponentThreat) drawArrow(data.opponentThreat, 'rgba(250, 49, 35, 0.8)');
+                if (showArrows && data.opponentThreat) drawArrow(data.opponentThreat, 'threat');
             }
 
-            // On dessine le meilleur coup en vert
-            if (data.bestMoveUci) drawArrow(data.bestMoveUci, 'rgba(129, 182, 76, 0.8)');
+            if (showArrows && data.bestMoveUci) drawArrow(data.bestMoveUci, 'best');
 
             const line = data.bestLine && data.bestLine.length > 0 ? `<br><span class="simulation-text">Simulation : ${data.bestLine.join(' ')} ...</span>` : "";
             msg += `<br><div class="best-move-suggestion">Le meilleur coup était : <strong>${data.bestMoveSan}</strong>${line}</div>`;
