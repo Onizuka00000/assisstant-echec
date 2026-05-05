@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevKeyBtn = document.getElementById('prev-key-btn');
     const nextKeyBtn = document.getElementById('next-key-btn');
     const toggleArrowsBtn = document.getElementById('toggle-arrows-btn');
+    
+    const simControls = document.getElementById('sim-controls');
+    const showPunishmentBtn = document.getElementById('show-punishment');
+    const showBestSimBtn = document.getElementById('show-best-sim');
+
     const moveInfo = document.getElementById('move-info');
     const moveRating = document.getElementById('move-rating');
     const ratingIcon = document.getElementById('rating-icon');
@@ -24,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMoveIndex = -1;
     let userColor = 'w';
     let isAnimating = false;
-    let showArrows = true; // Par défaut activé
+    let showArrows = true;
 
     board = Chessboard('myBoard', {
         position: 'start',
@@ -60,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const lastGame = gamesData.games[gamesData.games.length - 1];
             const gameId = lastGame.url;
 
-            const cached = localStorage.getItem(`chess_analysis_v2_${gameId}`);
+            // Invalidation cache V3 pour les simulations
+            const cached = localStorage.getItem(`chess_analysis_v3_${gameId}`);
             if (cached) {
                 statusEl.textContent = "Analyse chargée !";
                 const parsed = JSON.parse(cached);
@@ -140,13 +146,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     bestMoveSan: results[i-1].bestMoveSan,
                     bestMoveUci: results[i-1].bestMove,
                     bestLine: results[i-1].pv,
-                    opponentThreat: results[i].pv && results[i].pv.length > 0 ? results[i].bestMove : null,
+                    bestLineUci: results[i-1].pv_uci,
+                    punishmentLineUci: results[i].pv_uci,
+                    opponentThreat: results[i].pv_uci && results[i].pv_uci.length > 0 ? results[i].pv_uci[0] : null,
                     tacticalNote: tacticalNote,
                     color: move.color
                 });
             }
 
-            localStorage.setItem(`chess_analysis_v2_${gameId}`, JSON.stringify({
+            localStorage.setItem(`chess_analysis_v3_${gameId}`, JSON.stringify({
                 data: analysisData,
                 userColor,
                 opening: openingName
@@ -182,12 +190,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Promise((resolve) => {
             let lastWorkerEval = 0;
             let lastWorkerPv = [];
+            let lastWorkerPvUci = [];
             let bestMoveUci = "";
 
             const timeout = setTimeout(() => {
                 worker.removeEventListener('message', onMsg);
                 worker.postMessage('stop');
-                resolve({ eval: lastWorkerEval, bestMove: "", bestMoveSan: "?", pv: [] });
+                resolve({ eval: lastWorkerEval, bestMove: "", bestMoveSan: "?", pv: [], pv_uci: [] });
             }, 6000);
 
             const onMsg = (e) => {
@@ -202,7 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         eval: lastWorkerEval, 
                         bestMove: bestMoveUci, 
                         bestMoveSan: m ? frenchNotation(m.san) : bestMoveUci, 
-                        pv: lastWorkerPv 
+                        pv: lastWorkerPv,
+                        pv_uci: lastWorkerPvUci
                     });
                 }
                 if (msg.includes('score cp') || msg.includes('score mate')) {
@@ -212,7 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (msg.includes('pv')) {
                         const partsPv = msg.split(' ');
-                        const rawPv = partsPv.slice(partsPv.indexOf('pv') + 1, partsPv.indexOf('pv') + 5);
+                        const rawPv = partsPv.slice(partsPv.indexOf('pv') + 1, partsPv.indexOf('pv') + 6);
+                        lastWorkerPvUci = rawPv;
                         const tempGame = new Chess(fen);
                         lastWorkerPv = rawPv.map(uci => {
                             const m = tempGame.move({ from: uci.substring(0,2), to: uci.substring(2,4), promotion: 'q' });
@@ -253,12 +264,40 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMoveUI();
     }
 
-    function clearArrows() {
-        const svg = document.getElementById('drawing-layer');
-        if (svg) {
-            const lines = svg.querySelectorAll('line');
-            lines.forEach(l => l.remove());
+    // NOUVELLE FONCTION DE SIMULATION TACTIQUE
+    async function runTacticalSimulation(lineUci) {
+        if (isAnimating || !lineUci || lineUci.length === 0) return;
+        isAnimating = true;
+        clearArrows();
+        
+        const originalFen = analysisData[currentMoveIndex].fen;
+        const simGame = new Chess(originalFen);
+        
+        for (const moveUci of lineUci.slice(0, 3)) {
+            simGame.move({ from: moveUci.substring(0, 2), to: moveUci.substring(2, 4), promotion: 'q' });
+            board.position(simGame.fen(), true);
+            await new Promise(r => setTimeout(r, 600)); // Vitesse de simulation
         }
+
+        await new Promise(r => setTimeout(r, 1500)); // Pause pour observer le résultat
+        board.position(originalFen, true);
+        isAnimating = false;
+        updateMoveUI();
+    }
+
+    showPunishmentBtn.addEventListener('click', () => {
+        const data = analysisData[currentMoveIndex];
+        runTacticalSimulation(data.punishmentLineUci);
+    });
+
+    showBestSimBtn.addEventListener('click', () => {
+        const data = analysisData[currentMoveIndex];
+        // Pour simuler le meilleur coup, on doit d'abord jouer le meilleur coup lui-même
+        if (data.bestLineUci) runTacticalSimulation(data.bestLineUci);
+    });
+
+    function clearArrows() {
+        document.getElementById('drawing-layer').innerHTML = '';
     }
 
     function drawArrow(uci, type) {
@@ -269,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const svg = document.getElementById('drawing-layer');
         if (!svg) return;
         
-        const squareSize = 100 / 8; // Utilisation des pourcentages viewBox 0 0 100 100
+        const squareSize = 100 / 8;
 
         const getCoords = (sq) => {
             const col = sq.charCodeAt(0) - 97;
@@ -294,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         arrow.setAttribute('x2', end.x);
         arrow.setAttribute('y2', end.y);
         arrow.setAttribute('stroke', color);
-        arrow.setAttribute('stroke-width', '1.8'); // Épaisseur en pourcentage de la taille de l'échiquier
+        arrow.setAttribute('stroke-width', '1.8');
         arrow.setAttribute('stroke-linecap', 'round');
         arrow.setAttribute('marker-end', `url(#${markerId})`);
 
@@ -340,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             board.position('start', true);
             moveInfo.textContent = "Début";
             moveRating.classList.add('hidden');
+            simControls.classList.add('hidden');
             return;
         }
 
@@ -355,6 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (data.color !== userColor) {
             moveRating.classList.add('hidden');
+            simControls.classList.add('hidden');
             feedbackText.innerHTML = `<div class="opponent-move-label">Coup de l'adversaire (${frenchNotation(data.san)})</div>`;
             return;
         }
@@ -363,6 +404,12 @@ document.addEventListener('DOMContentLoaded', () => {
         moveRating.className = 'move-rating ' + data.rating.class;
         ratingIcon.textContent = data.rating.icon;
         ratingLabel.textContent = data.rating.label;
+
+        // Gestion des boutons de simulation
+        simControls.classList.remove('hidden');
+        const isBad = data.rating.label === 'GAFFE' || data.rating.label === 'Erreur' || data.rating.label === 'Incertain';
+        showPunishmentBtn.classList.toggle('hidden', !isBad);
+        showBestSimBtn.classList.toggle('hidden', data.rating.label === 'Best Move');
 
         let msg = "";
         if (data.rating.label === 'Best Move') {

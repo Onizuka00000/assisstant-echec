@@ -526,6 +526,53 @@ input[type="text"]:focus {
     color: #ffd700;
 }
 
+.sim-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.sim-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sim-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.sim-btn.red {
+    background: rgba(250, 49, 35, 0.15);
+    color: #fa3123;
+    border: 1px solid rgba(250, 49, 35, 0.3);
+}
+
+.sim-btn.red:hover {
+    background: rgba(250, 49, 35, 0.25);
+}
+
+.sim-btn.green {
+    background: rgba(129, 182, 76, 0.15);
+    color: #81b64c;
+    border: 1px solid rgba(129, 182, 76, 0.3);
+}
+
+.sim-btn.green:hover {
+    background: rgba(129, 182, 76, 0.25);
+}
+
 .hidden {
     display: none !important;
 }
