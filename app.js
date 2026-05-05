@@ -7,13 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const feedbackContainer = document.getElementById('coach-feedback');
     const feedbackText = document.getElementById('feedback-text');
     const coachTip = document.getElementById('coach-tip');
-    
+
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
     const prevKeyBtn = document.getElementById('prev-key-btn');
     const nextKeyBtn = document.getElementById('next-key-btn');
     const toggleArrowsBtn = document.getElementById('toggle-arrows-btn');
-    
+
     const simControls = document.getElementById('sim-controls');
     const showPunishmentBtn = document.getElementById('show-punishment');
     const showBestSimBtn = document.getElementById('show-best-sim');
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let board = null;
     let workers = [];
-    let analysisData = []; 
+    let analysisData = [];
     let currentMoveIndex = -1;
     let userColor = 'w';
     let isAnimating = false;
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const gameId = lastGame.url;
 
             // Invalidation cache V3 pour les simulations
-            const cached = localStorage.getItem(`chess_analysis_v3_${gameId}`);
+            const cached = localStorage.getItem(`chess_analysis_v4_${gameId}`);
             if (cached) {
                 statusEl.textContent = "Analyse chargée !";
                 const parsed = JSON.parse(cached);
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const gameParser = new Chess();
             gameParser.load_pgn(lastGame.pgn);
             const history = gameParser.history({ verbose: true });
-            
+
             let openingName = "Ouverture inconnue";
             const openingMatch = lastGame.pgn.match(/\[Opening "(.*?)"\]/);
             if (openingMatch) openingName = openingMatch[1];
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const results = new Array(positions.length);
             let completedCount = 0;
-            
+
             const runTask = async (worker, index) => {
                 if (index >= positions.length) return;
                 let depth = 10;
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const progress = Math.round((completedCount / positions.length) * 100);
                 document.querySelector('.progress-fill').style.width = `${progress}%`;
                 statusEl.textContent = `Analyse Dual-Core : ${progress}%`;
-                
+
                 await runTask(worker, index + workers.length);
             };
 
@@ -125,11 +125,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             analysisData = [];
             for (let i = 1; i < positions.length; i++) {
-                const move = history[i-1];
-                const evalBefore = results[i-1].eval;
+                const move = history[i - 1];
+                const evalBefore = results[i - 1].eval;
                 const evalAfter = results[i].eval;
                 const diff = move.color === 'w' ? (evalAfter - evalBefore) : (evalBefore - evalAfter);
-                const isBestMove = results[i-1].bestMove === (move.from + move.to);
+                const isBestMove = results[i - 1].bestMove === (move.from + move.to);
 
                 let tacticalNote = "";
                 if (diff < -3) {
@@ -140,14 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 analysisData.push({
                     fen: positions[i].fen,
-                    prevFen: positions[i-1].fen,
+                    prevFen: positions[i - 1].fen,
                     san: move.san,
                     eval: evalAfter,
                     rating: classifyMoveChessCom(diff, isBestMove, i),
-                    bestMoveSan: results[i-1].bestMoveSan,
-                    bestMoveUci: results[i-1].bestMove,
-                    bestLine: results[i-1].pv,
-                    bestLineUci: results[i-1].pv_uci,
+                    bestMoveSan: results[i - 1].bestMoveSan,
+                    bestMoveUci: results[i - 1].bestMove,
+                    bestLine: results[i - 1].pv,
+                    bestLineUci: results[i - 1].pv_uci,
                     punishmentLineUci: results[i].pv_uci,
                     opponentThreat: results[i].pv_uci && results[i].pv_uci.length > 0 ? results[i].pv_uci[0] : null,
                     tacticalNote: tacticalNote,
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            localStorage.setItem(`chess_analysis_v3_${gameId}`, JSON.stringify({
+            localStorage.setItem(`chess_analysis_v4_${gameId}`, JSON.stringify({
                 data: analysisData,
                 userColor,
                 opening: openingName
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBar.classList.add('hidden');
         boardContainer.classList.remove('hidden');
         feedbackContainer.classList.remove('hidden');
-        
+
         setTimeout(() => {
             board.resize();
             currentMoveIndex = -1;
@@ -207,11 +207,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     worker.removeEventListener('message', onMsg);
                     bestMoveUci = msg.split(' ')[1];
                     const temp = new Chess(fen);
-                    const m = temp.move({ from: bestMoveUci.substring(0,2), to: bestMoveUci.substring(2,4), promotion: 'q' });
-                    resolve({ 
-                        eval: lastWorkerEval, 
-                        bestMove: bestMoveUci, 
-                        bestMoveSan: m ? frenchNotation(m.san) : bestMoveUci, 
+                    const m = temp.move({ from: bestMoveUci.substring(0, 2), to: bestMoveUci.substring(2, 4), promotion: 'q' });
+                    resolve({
+                        eval: lastWorkerEval,
+                        bestMove: bestMoveUci,
+                        bestMoveSan: m ? frenchNotation(m.san) : bestMoveUci,
                         pv: lastWorkerPv,
                         pv_uci: lastWorkerPvUci
                     });
@@ -223,7 +223,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (msg.includes('pv')) {
                         const partsPv = msg.split(' ');
-                        const rawPv = partsPv.slice(partsPv.indexOf('pv') + 1, partsPv.indexOf('pv') + 6);
+                        const pvIndex = partsPv.indexOf('pv');
+                        // On capture jusqu'à 10 demi-coups pour une simulation riche
+                        const rawPv = partsPv.slice(pvIndex + 1, pvIndex + 11);
                         lastWorkerPvUci = rawPv;
                         const tempGame = new Chess(fen);
                         lastWorkerPv = rawPv.map(uci => {
@@ -233,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             };
-            
+
             worker.addEventListener('message', onMsg);
             worker.postMessage(`position fen ${fen}`);
             worker.postMessage(`go depth ${depth}`);
@@ -271,21 +273,22 @@ document.addEventListener('DOMContentLoaded', () => {
         isAnimating = true;
         clearArrows();
         
-        // Si startFromPrev est vrai, on repart de la position AVANT le coup du joueur
         const startingFen = startFromPrev ? analysisData[currentMoveIndex].prevFen : analysisData[currentMoveIndex].fen;
         const simGame = new Chess(startingFen);
         
         board.position(startingFen, true);
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 900)); // Flashback
 
-        for (const moveUci of lineUci.slice(0, 3)) {
-            simGame.move({ from: moveUci.substring(0, 2), to: moveUci.substring(2, 4), promotion: 'q' });
+        for (const moveUci of lineUci.slice(0, 6)) { // Simulation sur 3 tours (6 coups)
+            const move = simGame.move({ from: moveUci.substring(0, 2), to: moveUci.substring(2, 4), promotion: 'q' });
+            if (!move) break;
+            
             board.position(simGame.fen(), true);
-            await new Promise(r => setTimeout(r, 700)); 
+            await new Promise(r => setTimeout(r, 800)); 
         }
 
-        await new Promise(r => setTimeout(r, 1500)); 
-        board.position(analysisData[currentMoveIndex].fen, true); // On revient à la position actuelle
+        await new Promise(r => setTimeout(r, 1800)); 
+        board.position(analysisData[currentMoveIndex].fen, true);
         isAnimating = false;
         updateMoveUI();
     }
@@ -312,10 +315,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!uci || uci.length < 4) return;
         const from = uci.substring(0, 2);
         const to = uci.substring(2, 4);
-        
+
         const svg = document.getElementById('drawing-layer');
         if (!svg) return;
-        
+
         const squareSize = 100 / 8;
 
         const getCoords = (sq) => {
@@ -335,18 +338,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const dx = end.x - start.x;
         const dy = end.y - start.y;
         const length = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (length === 0) return;
 
         const angle = Math.atan2(dy, dx);
-        const shorten = 6; 
-        
+        const shorten = 6;
+
         const endX = start.x + (length - shorten) * Math.cos(angle);
         const endY = start.y + (length - shorten) * Math.sin(angle);
 
         const color = type === 'best' ? 'rgba(129, 182, 76, 0.9)' : 'rgba(250, 49, 35, 0.9)';
         const markerId = type === 'best' ? 'arrowhead-green' : 'arrowhead-red';
-        
+
         // Version plus robuste du lien marker
         const markerUrl = `url(#${markerId})`;
 
@@ -409,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = analysisData[currentMoveIndex];
         board.position(data.fen, true);
         moveInfo.textContent = `Coup ${Math.floor(currentMoveIndex / 2) + 1} (${frenchNotation(data.san)})`;
-        
+
         const displayEval = Math.max(-5, Math.min(5, data.eval));
         const percent = ((displayEval + 5) / 10) * 100;
         document.getElementById('eval-fill').style.height = `${percent}%`;
@@ -432,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isBad = data.rating.label === 'GAFFE' || data.rating.label === 'Erreur' || data.rating.label === 'Incertain';
         showPunishmentBtn.classList.toggle('hidden', !isBad);
         showBestSimBtn.classList.toggle('hidden', data.rating.label === 'Best Move');
-        
+
         if (window.lucide) lucide.createIcons();
 
         let msg = "";
@@ -457,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const line = data.bestLine && data.bestLine.length > 0 ? `<br><span class="simulation-text">Simulation : ${data.bestLine.join(' ')} ...</span>` : "";
             msg += `<br><div class="best-move-suggestion">Le meilleur coup était : <strong>${data.bestMoveSan}</strong>${line}</div>`;
         }
-        
+
         feedbackText.innerHTML = msg;
         coachTip.textContent = `Analyse Turbo (Dual-Core)`;
     }
