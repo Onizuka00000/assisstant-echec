@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dy = end.y - start.y;
         const angle = Math.atan2(dy, dx);
         const length = Math.sqrt(dx*dx + dy*dy);
-        const shorten = 3; // On réduit de 3% la longueur
+        const shorten = 4; // Raccourcissement correspondant à la taille du marqueur
         
         const endX = start.x + (length - shorten) * Math.cos(angle);
         const endY = start.y + (length - shorten) * Math.sin(angle);
@@ -352,8 +352,8 @@ document.addEventListener('DOMContentLoaded', () => {
         arrow.setAttribute('x2', endX);
         arrow.setAttribute('y2', endY);
         arrow.setAttribute('stroke', color);
-        arrow.setAttribute('stroke-width', '2');
-        arrow.setAttribute('stroke-linecap', 'round');
+        arrow.setAttribute('stroke-width', '2.5'); // Un peu plus épais pour le style
+        arrow.setAttribute('stroke-linecap', 'butt'); // Bout plat pour ne pas dépasser
         arrow.setAttribute('marker-end', `url(${baseUrl}#${markerId})`);
 
         svg.appendChild(arrow);
